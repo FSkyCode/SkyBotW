@@ -1,5 +1,6 @@
 import comandos from "./commands/index.js"
 import rules from "./rules/index.js"
+import nivel1 from "./rules/nivel1.js"  // ⬅️ Importamos la regla
 
 export default async function handler(sock, msg, lastActivity, saveActivity) {
   const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ""
@@ -9,9 +10,9 @@ export default async function handler(sock, msg, lastActivity, saveActivity) {
   const name = msg.pushName || sender
 
   // ----------------------------
-  // 🧠 SISTEMA DE NIVELES
+  // 🧠 SISTEMA DE NIVELES (solo grupos registrados)
   // ----------------------------
-  if (isGroup) {
+  if (isGroup && nivel1.check(msg)) {
     if (!lastActivity[groupId]) lastActivity[groupId] = {}
     if (!lastActivity[groupId][sender]) {
       lastActivity[groupId][sender] = { ts: 0, name, msgCount: 0 }
@@ -40,15 +41,17 @@ export default async function handler(sock, msg, lastActivity, saveActivity) {
   // ----------------------------
   let permitido = true
   for (const rule of rules) {
-    const mensajeTexto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ""
+    const mensajeTexto = texto
 
     // Permitir el comando !setgrupo sin restricciones
     if (mensajeTexto.startsWith('!setgrupo')) {
       permitido = true
       break
-    } else if (typeof rule.check === 'function') {
+    }
+
+    if (typeof rule.check === 'function') {
       permitido = rule.check(msg)
-      if (!permitido) return // Ignorar sin enviar nada
+      if (!permitido) return // Si falla una regla, se detiene
     }
   }
 
@@ -61,7 +64,7 @@ export default async function handler(sock, msg, lastActivity, saveActivity) {
   if (comandos[comando]) {
     const cmd = comandos[comando]
 
-    // ✅ Si el comando tiene reglas asociadas, las verificamos
+    // ✅ Si el comando tiene reglas asociadas, se revisan individualmente
     if (cmd.rules && Array.isArray(cmd.rules)) {
       for (const rule of cmd.rules) {
         if (typeof rule.check === 'function') {
