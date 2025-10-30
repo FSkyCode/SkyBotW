@@ -1,18 +1,36 @@
-import reglas from "../reglas/index.js"
+import fs from "fs"
+import path from "path"
+
+const gruposPath = path.resolve("./rules/grupos.json")
 
 export default {
   name: '!listarGrupos',
-  description: 'Muestra todos los grupos autorizados.',
+  description: 'Muestra todos los grupos autorizados. (Nivel 2)',
+  nivel: 2, // 🔹 Indicamos que este comando pertenece al nivel 2
   execute: async (sock, msg) => {
-    const regla1 = reglas.find(r => r.name === "regla1_grupos")
-    const grupos = regla1.getGrupos().gruposPermitidos
-
-    if (!grupos.length) {
-      await sock.sendMessage(msg.key.remoteJid, { text: "📭 No hay grupos registrados." })
+    if (!fs.existsSync(gruposPath)) {
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: "📭 No hay grupos registrados aún."
+      })
       return
     }
 
-    const lista = grupos.map((g, i) => `${i + 1}. ${g.nombre || "Sin nombre"}\n   🆔 ${g.id}`).join("\n\n")
-    await sock.sendMessage(msg.key.remoteJid, { text: `--SKY BOT RESPONDIENDO--📜 *Grupos Autorizados:*\n\n${lista}` })
+    const grupos = JSON.parse(fs.readFileSync(gruposPath, "utf-8"))
+    const keys = Object.keys(grupos)
+
+    if (!keys.length) {
+      await sock.sendMessage(msg.key.remoteJid, {
+        text: "📭 No hay grupos registrados."
+      })
+      return
+    }
+
+    const lista = keys
+      .map((id, i) => `${i + 1}. ${grupos[id].nombre || "Sin nombre"}\n   🆔 ${id}`)
+      .join("\n\n")
+
+    await sock.sendMessage(msg.key.remoteJid, {
+      text: `--SKY BOT RESPONDIENDO-- 📜 *Grupos Autorizados:*\n\n${lista}`
+    })
   }
 }
