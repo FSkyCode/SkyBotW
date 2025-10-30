@@ -1,8 +1,8 @@
 
-import reglas from "../reglas/index.js"
+import reglas from "../rules/index.js"
 
 export default {
-  name: '!setgrupo',
+  name: '!setGrupo',
   description: 'Agrega este grupo como autorizado para usar el bot.',
   execute: async (sock, msg) => {
     const isGroup = msg.key.remoteJid.endsWith('@g.us')
