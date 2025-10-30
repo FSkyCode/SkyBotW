@@ -1,6 +1,5 @@
-// handler.js
 import comandos from "./commands/index.js"
-import rules from "./rules/index.js"  // ✅ reemplaza "reglas"
+import rules from "./rules/index.js"
 
 export default async function handler(sock, msg, lastActivity, saveActivity) {
   const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ""
@@ -60,8 +59,23 @@ export default async function handler(sock, msg, lastActivity, saveActivity) {
   const args = texto.split(' ').slice(1)
 
   if (comandos[comando]) {
+    const cmd = comandos[comando]
+
+    // ✅ Si el comando tiene reglas asociadas, las verificamos
+    if (cmd.rules && Array.isArray(cmd.rules)) {
+      for (const rule of cmd.rules) {
+        if (typeof rule.check === 'function') {
+          const permitido = rule.check(msg)
+          if (!permitido) {
+            console.log(`❌ Comando ${cmd.name} bloqueado por regla: ${rule.name}`)
+            return
+          }
+        }
+      }
+    }
+
     try {
-      await comandos[comando].execute(sock, msg, args, lastActivity, saveActivity)
+      await cmd.execute(sock, msg, args, lastActivity, saveActivity)
     } catch (err) {
       console.error(`❌ Error ejecutando ${comando}:`, err)
       await sock.sendMessage(groupId, { text: "⚠️ Error ejecutando el comando." })
