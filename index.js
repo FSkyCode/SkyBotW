@@ -20,18 +20,22 @@ async function iniciarBot() {
   const { state, saveCreds } = await useMultiFileAuthState("./session");
   const { version } = await fetchLatestBaileysVersion();
 
-  // socket inicial (sin QR por defecto). Si hace falta mostramos QR luego.
+  // Pregunta al usuario si desea QR o código
+  let metodo = await ask("🔰 Elige el método de vinculación:\nA: QR\nB: Código\n👉 ");
+  metodo = metodo.trim().toUpperCase();
+
+  // socket base (sin QR por defecto)
   const sock = makeWASocket({
-  version,
-  logger,
-  auth: state,
-  printQRInTerminal: false,
-  browser: ["Android", "Chrome", "2.3000.0"],
-});
+    version,
+    logger,
+    auth: state,
+    printQRInTerminal: false,
+    browser: ["Android", "Chrome", "2.3000.0"],
+  });
 
   sock.ev.on("creds.update", saveCreds);
 
-  // mensajes
+  // manejar mensajes
   sock.ev.on("messages.upsert", async (m) => {
     const mensaje = m.messages?.[0];
     if (!mensaje?.message) return;
@@ -39,7 +43,6 @@ async function iniciarBot() {
   });
 
   sock.ev.on("connection.update", (u) => {
-    logger.info({ u }, "connection.update");
     const { connection, lastDisconnect } = u;
     if (connection === "open") logger.info("✅ Bot conectado exitosamente.");
     else if (connection === "close") {
@@ -50,40 +53,10 @@ async function iniciarBot() {
     }
   });
 
-  // Si no existe sesión -> intentar pairing por código con reintentos y fallback a QR
+  // Si no hay sesión
   if (!fs.existsSync("./session/creds.json")) {
-    const phone = await ask("📱 Ingresa tu número de WhatsApp (sin +, ej: 573001234567): ");
-    if (!phone) { console.log("Número inválido."); process.exit(1); }
-
-    // Esperar a que el socket esté algo inicializado
-    await new Promise((r) => setTimeout(r, 1500));
-
-    const maxAttempts = 4;
-    let paired = false;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        logger.info(`Intento ${attempt}/${maxAttempts} para solicitar pairing code...`);
-        const code = await sock.requestPairingCode(phone); // puede lanzar si socket no listo
-        console.log("=========================================");
-        console.log("🔗 VINCULACIÓN POR CÓDIGO");
-        console.log("👉 En tu WhatsApp ve a:");
-        console.log("Configuración → Dispositivos vinculados → Vincular con número de teléfono");
-        console.log(`📱 Ingresa este código: ${code}`);
-        console.log("=========================================");
-        paired = true;
-        break;
-      } catch (err) {
-        logger.warn({ err }, `Error al pedir pairing code (intento ${attempt})`);
-        // esperar un poco antes del siguiente intento, con backoff
-        await new Promise((r) => setTimeout(r, 1500 * attempt));
-      }
-    }
-
-    if (!paired) {
-      // fallback: activar QR (más fiable)
-      console.log("⚠️ No se pudo generar código luego de varios intentos. Mostrando QR como fallback.");
-      // cerramos el socket y creamos uno nuevo con printQRInTerminal true
-      try { sock.end(); } catch (e) {}
+    if (metodo === "A") {
+      console.log("📸 Modo QR seleccionado. Escanea el código para vincular tu WhatsApp.\n");
       const sockQR = makeWASocket({
         version,
         logger,
@@ -93,12 +66,17 @@ async function iniciarBot() {
       });
       sockQR.ev.on("creds.update", saveCreds);
       sockQR.ev.on("connection.update", (u) => logger.info({ u }, "QR socket update"));
-      // attach same handlers to new socket
       sockQR.ev.on("messages.upsert", async (m) => {
         const mensaje = m.messages?.[0];
         if (!mensaje?.message) return;
         try { if (handler) await handler(sockQR, mensaje); } catch (e) { logger.error(e) }
       });
+    } else if (metodo === "B") {
+      console.log("⚙️ Modo Código aún no disponible. Por ahora usa la opción A (QR).");
+      process.exit(0);
+    } else {
+      console.log("❌ Opción inválida. Reinicia y elige A o B.");
+      process.exit(0);
     }
   }
 
