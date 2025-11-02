@@ -29,7 +29,7 @@ async function iniciarBot() {
   // 📥 Evento de mensajes
   sock.ev.on("messages.upsert", async (m) => {
     const mensaje = m.messages[0]
-    if (!mensaje.message || mensaje.key.fromMe) return // Ignorar vacíos o del propio bot
+    
     await handler(sock, mensaje)
   })
 
