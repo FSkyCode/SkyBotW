@@ -9,8 +9,7 @@ import fs from "fs"
 import handler from "./handler.js"
 
 // 🎨 Logger
-const logger = P({ level: "silent" }) // Cambia a "info" si querés ver más detalles
-
+const logger = P({ level: "info" })
 async function iniciarBot() {
   const { state, saveCreds } = await useMultiFileAuthState("./session")
   const { version } = await fetchLatestBaileysVersion()
