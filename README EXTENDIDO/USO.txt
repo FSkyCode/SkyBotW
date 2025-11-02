@@ -1,0 +1,12 @@
+# Uso del SkyBotW
+
+## Requisitos
+- Node.js en Termux.
+- Conexión a internet.
+- WhatsApp activo en tu teléfono.
+
+## Primer inicio
+1. Clona el repo:
+```bash
+git clone https://github.com/FSkyCode/SkyBotW.git
+cd SkyBotW
