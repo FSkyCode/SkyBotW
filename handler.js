@@ -15,7 +15,7 @@ console.log("📩 Comando detectado:", texto)
   // 🔍 Detectar tipo de chat
 const tipo = await detectType(sock, msg)
   // 🔐 Permisos
-  const permitido = await permisos.verificar(remoteJid)
+  const permitido = permisos.isAutorizado(remoteJid)
 
   // 🚫 Si no tiene permiso y no es !establecerBot, salir
   if (!permitido && comando !== "!establecerbot") {
