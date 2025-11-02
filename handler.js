@@ -8,7 +8,7 @@ export default async function handler(sock, msg) {
   const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ""
   if (!texto || texto.trim() === "") return // Ignorar mensajes vacíos
 
-  console.log("📩 Comando detectado:", texto)
+  if (texto.startsWith("!")) console.log("📩 Comando detectado:", texto)
 
   // Detectar datos básicos
   const comando = texto.trim().split(" ")[0].toLowerCase()
