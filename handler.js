@@ -10,7 +10,7 @@ export default async function handler(sock, msg) {
   const sender = msg.key.participant || msg.key.remoteJid
   const name = msg.pushName || sender
 
-  if (!texto.startsWith("!")) return // Ignorar mensajes que no sean comandos/expresiones
+  
 console.log("📩 Comando detectado:", texto)
   // 🔍 Detectar tipo de chat
 const tipo = await detectType(sock, msg)
