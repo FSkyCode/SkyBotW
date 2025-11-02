@@ -7,79 +7,103 @@ import makeWASocket, {
 import P from "pino";
 import fs from "fs";
 import readline from "readline";
-import handler from "./handler.js"; // Asegúrate de tener este archivo o elimina esta línea si no lo usas
+import handler from "./handler.js";
 
 const logger = P({ level: "info" });
+
+async function ask(question) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((res) => rl.question(question, (a) => { rl.close(); res(a.trim()); }));
+}
 
 async function iniciarBot() {
   const { state, saveCreds } = await useMultiFileAuthState("./session");
   const { version } = await fetchLatestBaileysVersion();
 
+  // socket inicial (sin QR por defecto). Si hace falta mostramos QR luego.
   const sock = makeWASocket({
     version,
     logger,
     auth: state,
-    printQRInTerminal: false, // Ya no usaremos QR
+    printQRInTerminal: false,
     browser: ["SkyBotW", "Desktop", "1.0.0"],
   });
 
   sock.ev.on("creds.update", saveCreds);
 
-  // 📩 Escucha de mensajes entrantes
+  // mensajes
   sock.ev.on("messages.upsert", async (m) => {
-    const mensaje = m.messages[0];
+    const mensaje = m.messages?.[0];
     if (!mensaje?.message) return;
-    if (handler) await handler(sock, mensaje);
+    try { if (handler) await handler(sock, mensaje); } catch (e) { logger.error(e) }
   });
 
-  // ⚙️ Conexión y reconexión
-  sock.ev.on("connection.update", async (update) => {
-    const { connection, lastDisconnect } = update;
-    if (connection === "open") console.log("✅ Bot conectado exitosamente.");
+  sock.ev.on("connection.update", (u) => {
+    logger.info({ u }, "connection.update");
+    const { connection, lastDisconnect } = u;
+    if (connection === "open") logger.info("✅ Bot conectado exitosamente.");
     else if (connection === "close") {
-      const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log("⚠️ Conexión cerrada, reconectando:", shouldReconnect);
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      logger.info("⚠️ Conexión cerrada, reconectando:", shouldReconnect);
       if (shouldReconnect) iniciarBot();
-      else console.log("🚪 Sesión cerrada manualmente o inválida.");
+      else logger.info("🚪 Sesión cerrada o inválida.");
     }
   });
 
-  // 🆕 Si no existe sesión previa → pedir número y mostrar código
+  // Si no existe sesión -> intentar pairing por código con reintentos y fallback a QR
   if (!fs.existsSync("./session/creds.json")) {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
+    const phone = await ask("📱 Ingresa tu número de WhatsApp (sin +, ej: 573001234567): ");
+    if (!phone) { console.log("Número inválido."); process.exit(1); }
 
-    rl.question("📱 Ingresa tu número de WhatsApp (sin +, ej: 573001234567): ", async (num) => {
-      rl.close();
-      const phone = num.trim();
+    // Esperar a que el socket esté algo inicializado
+    await new Promise((r) => setTimeout(r, 1500));
 
-      if (!phone) {
-        console.log("❌ No ingresaste un número válido.");
-        process.exit(1);
-      }
-
+    const maxAttempts = 4;
+    let paired = false;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const code = await sock.requestPairingCode(phone);
+        logger.info(`Intento ${attempt}/${maxAttempts} para solicitar pairing code...`);
+        const code = await sock.requestPairingCode(phone); // puede lanzar si socket no listo
         console.log("=========================================");
         console.log("🔗 VINCULACIÓN POR CÓDIGO");
         console.log("👉 En tu WhatsApp ve a:");
         console.log("Configuración → Dispositivos vinculados → Vincular con número de teléfono");
         console.log(`📱 Ingresa este código: ${code}`);
         console.log("=========================================");
-      } catch (e) {
-        console.error("❌ Error al solicitar código:", e);
+        paired = true;
+        break;
+      } catch (err) {
+        logger.warn({ err }, `Error al pedir pairing code (intento ${attempt})`);
+        // esperar un poco antes del siguiente intento, con backoff
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
       }
-    });
+    }
+
+    if (!paired) {
+      // fallback: activar QR (más fiable)
+      console.log("⚠️ No se pudo generar código luego de varios intentos. Mostrando QR como fallback.");
+      // cerramos el socket y creamos uno nuevo con printQRInTerminal true
+      try { sock.end(); } catch (e) {}
+      const sockQR = makeWASocket({
+        version,
+        logger,
+        auth: state,
+        printQRInTerminal: true,
+        browser: ["SkyBotW", "Desktop", "1.0.0"],
+      });
+      sockQR.ev.on("creds.update", saveCreds);
+      sockQR.ev.on("connection.update", (u) => logger.info({ u }, "QR socket update"));
+      // attach same handlers to new socket
+      sockQR.ev.on("messages.upsert", async (m) => {
+        const mensaje = m.messages?.[0];
+        if (!mensaje?.message) return;
+        try { if (handler) await handler(sockQR, mensaje); } catch (e) { logger.error(e) }
+      });
+    }
   }
 
-  // 📂 Crear carpeta de datos si no existe
   if (!fs.existsSync("./data")) fs.mkdirSync("./data");
-  if (!fs.existsSync("./data/registros.json"))
-    fs.writeFileSync("./data/registros.json", JSON.stringify({}, null, 2));
+  if (!fs.existsSync("./data/registros.json")) fs.writeFileSync("./data/registros.json", JSON.stringify({}, null, 2));
 }
 
-// 🚀 Iniciar bot
-iniciarBot();
+iniciarBot().catch(e => { console.error("FATAL:", e); process.exit(1) });
