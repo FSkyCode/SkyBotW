@@ -7,7 +7,7 @@ const cachePath = "./data/groupCache.json"
  * Detecta el tipo de chat: privado, grupo o comunidad
  * y devuelve datos estructurados.
  */
-export default async function detectType(sock, msg) {
+export function detectType(sock, msg) {
   const jid = msg.key.remoteJid
   const isGroup = jid.endsWith("@g.us")
 
