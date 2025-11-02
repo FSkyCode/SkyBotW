@@ -2,5 +2,5 @@
 import establecerBot from "./establecerBot.js"
 
 export default {
-  establecerBot,
+  "!establecerbot": establecerBot
 }
