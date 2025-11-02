@@ -22,12 +22,12 @@ async function iniciarBot() {
 
   // socket inicial (sin QR por defecto). Si hace falta mostramos QR luego.
   const sock = makeWASocket({
-    version,
-    logger,
-    auth: state,
-    printQRInTerminal: false,
-    browser: ["SkyBotW", "Desktop", "1.0.0"],
-  });
+  version,
+  logger,
+  auth: state,
+  printQRInTerminal: false,
+  browser: ["Android", "Chrome", "2.3000.0"],
+});
 
   sock.ev.on("creds.update", saveCreds);
 
