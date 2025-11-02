@@ -2,7 +2,6 @@ import comandos from "./commands/index.js"
 import expresiones from "./expressions/index.js"
 import permisos from "./rules/permisos.js"
 import { detectType } from "./utils/detectType.js"
-
 export default async function handler(sock, msg) {
   const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || ""
   const comando = texto.trim().split(" ")[0].toLowerCase()
@@ -12,10 +11,9 @@ export default async function handler(sock, msg) {
   const name = msg.pushName || sender
 
   if (!texto.startsWith("!")) return // Ignorar mensajes que no sean comandos/expresiones
-
+console.log("📩 Comando detectado:", texto)
   // 🔍 Detectar tipo de chat
-  const tipo = detectType(remoteJid)
-
+const tipo = await detectType(sock, msg)
   // 🔐 Permisos
   const permitido = await permisos.verificar(remoteJid)
 
