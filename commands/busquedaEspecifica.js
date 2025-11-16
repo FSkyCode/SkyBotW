@@ -16,10 +16,11 @@ export default {
       return
     }
 
-    await sock.sendMessage(remoteJid, { text: `📥 Descargando video...\n🔗 URL: ${url}` })
+    await sock.sendMessage(remoteJid, { 
+      text: `📥 Descargando:\n🔗 ${url}` 
+    })
 
     try {
-      // archivo temporal único
       const tempPath = path.join("./data", `direct_${Date.now()}.mp4`)
       const writer = fs.createWriteStream(tempPath)
 
@@ -35,18 +36,18 @@ export default {
         try {
           await sock.sendMessage(remoteJid, {
             video: fs.readFileSync(tempPath),
-            caption: "🎬 Video enviado correctamente."
+            caption: "🎬 Video enviado."
           })
         } catch (sendErr) {
           console.log(sendErr)
-          await sock.sendMessage(remoteJid, { text: "❌ Error enviando el archivo." })
+          await sock.sendMessage(remoteJid, { text: "❌ Error al enviar el archivo." })
         }
 
         fs.unlinkSync(tempPath)
       })
 
       writer.on("error", async () => {
-        await sock.sendMessage(remoteJid, { text: "❌ Error al guardar el archivo." })
+        await sock.sendMessage(remoteJid, { text: "❌ Error guardando el archivo." })
       })
 
     } catch (e) {
