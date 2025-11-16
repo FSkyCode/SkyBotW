@@ -2,5 +2,5 @@
 import saludar from "./saludar.js"
 
 export default {
-  saludar,
+  "!saludar": saludar,
 }
