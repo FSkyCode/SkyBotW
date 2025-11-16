@@ -1,11 +1,11 @@
-// commands/video.js
+// commands/buscarVideo.js
 import axios from "axios"
 import fs from "fs"
 import path from "path"
 
 export default {
   name: "!video",
-  description: "Busca un video por palabra clave y lo envía. Uso: !video <texto>",
+  description: "Busca un video por palabra clave. Uso: !video <texto>",
 
   async execute(sock, msg, args) {
     const remoteJid = msg.key.remoteJid
@@ -17,21 +17,19 @@ export default {
     }
 
     await sock.sendMessage(remoteJid, {
-      text: `🔍 Buscando video para: *${texto}*...`
+      text: `🔍 Buscando video sobre: *${texto}*...`
     })
 
     try {
-      // -------- API de ejemplo (puedes cambiarla) --------
       const urlAPI = `https://api.pexels.com/videos/search?query=${encodeURIComponent(texto)}&per_page=1`
 
       const res = await axios.get(urlAPI, {
         headers: {
-          Authorization: "563492ad6f9170000100000123456789abcdef12" // clave de ejemplo
+          Authorization: "563492ad6f9170000100000123456789abcdef12"
         }
       })
 
       const videos = res.data.videos
-
       if (!videos?.length) {
         await sock.sendMessage(remoteJid, { text: "⚠️ No encontré resultados." })
         return
@@ -39,7 +37,6 @@ export default {
 
       const videoURL = videos[0].video_files[0].link
 
-      // ---- descarga ----
       const tempPath = path.join("./data", `temp_${Date.now()}.mp4`)
       const writer = fs.createWriteStream(tempPath)
 
