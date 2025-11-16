@@ -1,68 +1,67 @@
-import axios from "axios";
-import fs from "fs";
-import path from "path";
+// commands/video.js
+import axios from "axios"
+import fs from "fs"
+import path from "path"
 
-export default async function handler(sock, msg) {
-  const body =
-    msg.message.conversation ||
-    msg.message.extendedTextMessage?.text ||
-    "";
-  
-  const args = body.trim().split(" ");
-  const comando = args.shift()?.toLowerCase();
+export default {
+  name: "!video",
+  description: "Busca un video por palabra clave y lo envía. Uso: !video <texto>",
 
-  // === COMANDO: !video <texto> ===
-  if (comando === "!video") {
-    if (args.length === 0) {
-      return sock.sendMessage(msg.key.remoteJid, { text: "❗ Usa: !video <busqueda>" });
+  async execute(sock, msg, args) {
+    const remoteJid = msg.key.remoteJid
+    const texto = args.join(" ")
+
+    if (!texto) {
+      await sock.sendMessage(remoteJid, { text: "❗ Uso correcto: *!video <busqueda>*" })
+      return
     }
 
-    const consulta = args.join(" ");
-
-    await sock.sendMessage(msg.key.remoteJid, { text: `🔍 Buscando video: ${consulta}...` });
+    await sock.sendMessage(remoteJid, {
+      text: `🔍 Buscando video para: *${texto}*...`
+    })
 
     try {
-      // --- EJEMPLO DE BUSCADOR (cámbialo por lo que uses) ---
-      // Obtiene un video random permitido
-      const urlAPI = `https://api.pexels.com/videos/search?query=${encodeURIComponent(consulta)}&per_page=1`;
+      // -------- API de ejemplo (puedes cambiarla) --------
+      const urlAPI = `https://api.pexels.com/videos/search?query=${encodeURIComponent(texto)}&per_page=1`
 
       const res = await axios.get(urlAPI, {
-        headers: { Authorization: "563492ad6f9170000100000123456789abcdef12" } // clave de ejemplo
-      });
+        headers: {
+          Authorization: "563492ad6f9170000100000123456789abcdef12" // clave de ejemplo
+        }
+      })
 
-      if (!res.data.videos?.length) {
-        return sock.sendMessage(msg.key.remoteJid, { text: "⚠️ No encontré ningún video." });
+      const videos = res.data.videos
+
+      if (!videos?.length) {
+        await sock.sendMessage(remoteJid, { text: "⚠️ No encontré resultados." })
+        return
       }
 
-      const videoURL = res.data.videos[0].video_files[0].link;
+      const videoURL = videos[0].video_files[0].link
 
-      // Descarga archivo en /tmp
-      const filePath = path.join("./data", "tempVideo.mp4");
-      const file = fs.createWriteStream(filePath);
+      // ---- descarga ----
+      const tempPath = path.join("./data", `temp_${Date.now()}.mp4`)
+      const writer = fs.createWriteStream(tempPath)
 
       const download = await axios({
         url: videoURL,
         method: "GET",
         responseType: "stream"
-      });
+      })
 
-      download.data.pipe(file);
+      download.data.pipe(writer)
 
-      file.on("finish", async () => {
-        await sock.sendMessage(
-          msg.key.remoteJid,
-          {
-            video: fs.readFileSync(filePath),
-            caption: `🎬 Resultado para: ${consulta}`
-          }
-        );
+      writer.on("finish", async () => {
+        await sock.sendMessage(remoteJid, {
+          video: fs.readFileSync(tempPath),
+          caption: `🎬 Resultado encontrado: ${texto}`
+        })
+        fs.unlinkSync(tempPath)
+      })
 
-        fs.unlinkSync(filePath);
-      });
-
-    } catch (err) {
-      console.log(err);
-      await sock.sendMessage(msg.key.remoteJid, { text: "❗ Error buscando o enviando el video." });
+    } catch (e) {
+      console.log(e)
+      await sock.sendMessage(remoteJid, { text: "❌ Error descargando o enviando el video." })
     }
   }
 }
