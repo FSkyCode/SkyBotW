@@ -3,7 +3,7 @@ import fs from "fs"
 import path from "path"
 
 export default {
-  name: "!buscarvideo",
+  name: "!apivideo",
   description: "Busca un video +18 usando la API de Eporner. Uso: !buscarVideo <palabra>",
 
   async execute(sock, msg, args) {
